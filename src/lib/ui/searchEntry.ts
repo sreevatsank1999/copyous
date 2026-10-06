@@ -13,6 +13,7 @@ import { ItemType, ItemTypes, Tag, Tags } from '../common/constants.js';
 import { enumParamSpec, registerClass } from '../common/gjs.js';
 import { Icon, loadIcon } from '../common/icons.js';
 import { ClipboardEntry } from '../database/database.js';
+import { getEvent } from '../misc/compatibility.js';
 import { TagsItem } from './components/tagsItem.js';
 
 function localeContains(text: string, query: string): boolean {
@@ -309,7 +310,7 @@ export class SearchEntry extends St.Entry {
 		});
 
 		const itemButtonContent = new St.BoxLayout();
-		this._itemButton.add_child(itemButtonContent);
+		this._itemButton.child = itemButtonContent; // GNOME 42's St.Bin only allocates its child property
 
 		const searchIcon = new St.Icon({
 			style_class: 'search-entry-icon',
@@ -573,7 +574,8 @@ export class SearchEntry extends St.Entry {
 		this.natural_width = themeNode.get_max_width();
 	}
 
-	override vfunc_scroll_event(event: Clutter.Event): boolean {
+	override vfunc_scroll_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const direction = event.get_scroll_direction();
 		const swap = this.ext.settings.get_boolean('swap-scroll-shortcut');
 		if (direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT) {

@@ -10,6 +10,7 @@ import {
 	get_next_visible_sibling,
 	get_previous_visible_sibling,
 } from '../misc/actor.js';
+import { setExpand } from '../misc/compatibility.js';
 import { ClipboardItem } from './items/clipboardItem.js';
 import { State, StatusItem } from './items/statusItem.js';
 import { SearchChange, SearchQuery } from './searchEntry.js';
@@ -26,6 +27,7 @@ export class ClipboardScrollContainer extends St.BoxLayout {
 			x_align: Clutter.ActorAlign.START,
 			x_expand: false,
 		});
+		setExpand(this, 'x', false);
 
 		this._statusItem = new StatusItem(ext);
 		this.updateVisible();
@@ -46,7 +48,7 @@ export class ClipboardScrollContainer extends St.BoxLayout {
 		} else if (n >= 2 && this._statusItem.get_parent() !== null) {
 			this.remove_child(this._statusItem);
 			this.x_align = Clutter.ActorAlign.START;
-			this.x_expand = false;
+			setExpand(this, 'x', false);
 		}
 
 		this.updatePseudoclasses();
@@ -107,7 +109,7 @@ export class ClipboardScrollContainer extends St.BoxLayout {
 		}
 
 		if (this.text_direction === Clutter.TextDirection.RTL) {
-			value = adjustment.get_upper() - adjustment.page_size - value;
+			value = adjustment.upper - adjustment.page_size - value;
 		}
 
 		if (animate) {

@@ -259,10 +259,9 @@ async function downloadHljsModule(
 		// Check integrity
 		const sha512 = GLib.compute_checksum_for_bytes(GLib.ChecksumType.SHA512, data);
 		if (sha512 !== hash) {
-			(prefs.getLogger?.() ?? console)
-				.error(
-					`Highlight.js module ${path.get_path()} integrity check failed\nExpected: ${hash}\nActual: ${sha512}`,
-				);
+			(prefs.getLogger?.() ?? console).error(
+				`Highlight.js module ${path.get_path()} integrity check failed\nExpected: ${hash}\nActual: ${sha512}`,
+			);
 			return false;
 		}
 
@@ -282,7 +281,8 @@ async function downloadHljs(prefs: ExtensionPreferences, cancellable: Gio.Cancel
 	const path = getHljsPath(prefs);
 	let prefUrl = null;
 	for (const url of HljsUrls) {
-		if (prefUrl) (prefs.getLogger?.() ?? console).warn(`Failed to download highlight.js from '${prefUrl}'. Trying next cdn`);
+		if (prefUrl)
+			(prefs.getLogger?.() ?? console).warn(`Failed to download highlight.js from '${prefUrl}'. Trying next cdn`);
 		prefUrl = url;
 
 		// eslint-disable-next-line no-await-in-loop
@@ -305,8 +305,9 @@ export async function downloadHljsLanguage(
 	let prefUrl = null;
 	for (const url of getHljsLanguageUrls(language)) {
 		if (prefUrl)
-			(prefs.getLogger?.() ?? console)
-				.warn(`Failed to download highlight.js language '${language}' from '${prefUrl}'. Trying next cdn`);
+			(prefs.getLogger?.() ?? console).warn(
+				`Failed to download highlight.js language '${language}' from '${prefUrl}'. Trying next cdn`,
+			);
 		prefUrl = url;
 
 		// eslint-disable-next-line no-await-in-loop
@@ -378,7 +379,7 @@ export class DependenciesWarningButton extends Gtk.MenuButton {
 				const success = await downloadHljs(prefs, this._cancellable);
 
 				// Hide spinner
-				this.set_child(null);
+				this.icon_name = Icon.Warning; // set_child(null) does not restore the icon in GTK 4.6
 				this.add_css_class('warning');
 
 				// Show end download toast

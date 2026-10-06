@@ -581,7 +581,7 @@ export class ActionsGroup extends Adw.PreferencesGroup {
 	set actions(actions: (Action | ActionSubmenu)[]) {
 		this._actions = actions;
 		const jsobjects = actions.map((a) => new JsObjectWrapper(a));
-		this._model.splice(0, this._model.n_items, jsobjects);
+		this._model.splice(0, this._model.get_n_items(), jsobjects);
 		this.notify('actions');
 	}
 

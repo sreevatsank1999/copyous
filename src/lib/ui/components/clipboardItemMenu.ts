@@ -30,6 +30,7 @@ class PopupMenuShortcutItem extends PopupMenu.PopupBaseMenuItem {
 		shortcut: Shortcut,
 	) {
 		super();
+		this.setOrnament(PopupMenu.Ornament.HIDDEN); // Default since GNOME 45
 
 		const label = new St.Label({
 			text,

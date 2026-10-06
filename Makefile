@@ -43,7 +43,7 @@ all: $(DIST_ZIP)
 
 # Clean
 clean:
-	rm -rf $(DIST_DIR)
+	rm -rf $(DIST_DIR) build
 
 # Dist
 $(DIST_DIR):
@@ -104,16 +104,19 @@ $(DIST_DIR)/metadata.json: resources/metadata.json | $(DIST_DIR)
 	cp $< $@
 
 # TypeScript
-$(DIST_DIR)/extension.js: $(SRC) tsconfig.json | $(DIST_DIR)
-	pnpm exec tsc
-	@touch $@
+# GNOME 42 loads extensions as legacy scripts, so the tsc output is bundled into
+# extension.js and prefs.js with the shims in compat/gnome42 (see scripts/gnome42/build.mjs)
+TSC_DIR := build/tsc
+COMPAT := $(wildcard compat/gnome42/*.js) scripts/gnome42/build.mjs
+
+$(DIST_DIR)/extension.js: $(SRC) $(COMPAT) tsconfig.json | $(DIST_DIR)
+	rm -rf $(TSC_DIR)
+	pnpm exec tsc --outDir $(TSC_DIR) --tsBuildInfoFile $(TSC_DIR)/tsconfig.tsbuildinfo
 ifeq ($(RELEASE),1)
 # Remove code blocks commented with /* DEBUG-ONLY */ or lines ending with // DEBUG-ONLY
-	find $(@D) -name '*.js' -exec perl -0777 -i -pe 's/^(\s*)\/\* DEBUG-ONLY \*\/(?:.|\n)*?^\1\}|\/\/ DEBUG-ONLY.*\n.*$$//gm' {} \;
-# Format code to make it easier for EGO reviewers
-	-pnpm exec eslint $(DIST_DIR) --config ./format.eslint.config.js --fix --cache --cache-location=$(DIST_DIR)/.eslintcache
-	pnpm exec prettier $(DIST_DIR) --ignore-path= --log-level=warn --write --cache --cache-location=$(DIST_DIR)/.prettiercache
+	find $(TSC_DIR) -name '*.js' -exec perl -0777 -i -pe 's/^(\s*)\/\* DEBUG-ONLY \*\/(?:.|\n)*?^\1\}|\/\/ DEBUG-ONLY.*\n.*$$//gm' {} \;
 endif
+	node scripts/gnome42/build.mjs $(TSC_DIR) $(DIST_DIR)
 
 TSC := $(DIST_DIR)/extension.js
 
@@ -172,8 +175,6 @@ $(DIST_ZIP): $(DIST_DIR)/metadata.json $(TSC) $(CSS) $(SCHEMAS) $(DEBUG_SCHEMAS)
 	gnome-extensions pack $(DIST_DIR) -o $(@D) \
 		--force \
 		--podir=$(PO_PATH) \
-		--extra-source="lib" \
-		--extra-source="thirdparty" \
 		--extra-source=$(ICONS_PATH) \
 		--extra-source="resources.gresource" \
 		--extra-source="theme.gresource"

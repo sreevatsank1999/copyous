@@ -299,11 +299,11 @@ export const HljsLanguages: [string, string, string][] = [
 ];
 
 export function getCachePath(ext: Extension | ExtensionPreferences): Gio.File {
-	return Gio.file_new_build_filenamev([GLib.get_user_cache_dir(), ext.uuid]);
+	return Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_cache_dir(), ext.uuid]));
 }
 
 export function getDataPath(ext: Extension | ExtensionPreferences): Gio.File {
-	return Gio.file_new_build_filenamev([GLib.get_user_data_dir(), ext.uuid]);
+	return Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_data_dir(), ext.uuid]));
 }
 
 export function getImagesPath(ext: Extension | ExtensionPreferences): Gio.File {
@@ -311,7 +311,7 @@ export function getImagesPath(ext: Extension | ExtensionPreferences): Gio.File {
 }
 
 export function getConfigPath(ext: Extension | ExtensionPreferences): Gio.File {
-	return Gio.file_new_build_filenamev([GLib.get_user_config_dir(), ext.uuid]);
+	return Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_config_dir(), ext.uuid]));
 }
 
 export function getActionsConfigPath(ext: Extension | ExtensionPreferences): Gio.File {

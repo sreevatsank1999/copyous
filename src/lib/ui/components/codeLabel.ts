@@ -232,6 +232,22 @@ export function applyTheme(colorScheme: ColorScheme | undefined, highlighted: st
 	});
 }
 
+let pangoLayoutLineReady = false;
+
+/**
+ * GJS 1.72 (GNOME 42) fails to set up the Pango.LayoutLine wrapper the first time a line is returned
+ * ("can't redefine non-configurable property is_paragraph_start"); it works on every later call.
+ */
+function initPangoLayoutLine(layout: Pango.Layout) {
+	if (pangoLayoutLineReady) return;
+	pangoLayoutLineReady = true;
+	try {
+		layout.get_line_readonly(0);
+	} catch {
+		// Expected on GJS 1.72
+	}
+}
+
 @registerClass({
 	Properties: {
 		'code': GObject.ParamSpec.string('code', null, null, GObject.ParamFlags.READWRITE, ''),
@@ -412,6 +428,7 @@ export class CodeLabel extends St.Label {
 
 		// Shift one line up to account for extra blank line
 		const layout = this.clutter_text.get_layout();
+		initPangoLayoutLine(layout);
 		const line = layout.get_line_readonly(0);
 		const offset = line ? line.get_height() / Pango.SCALE / scale : 0;
 		contentBox.y1 -= offset;

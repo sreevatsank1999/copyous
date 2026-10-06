@@ -100,8 +100,9 @@ class AppSelectionPopover extends Gtk.Popover {
 			filter,
 			incremental: true,
 		});
-		filterModel.connect('notify::n-items', () => {
-			const n = filterModel.n_items;
+		// GTK 4.6 has no n-items property
+		filterModel.connect('items-changed', () => {
+			const n = filterModel.get_n_items();
 			stack.set_visible_child_name(n !== 0 ? 'list' : 'placeholder');
 		});
 
@@ -271,7 +272,7 @@ class AppExclusionsGroup extends Adw.PreferencesGroup {
 
 	get exclusions(): string[] {
 		const strings: string[] = [];
-		for (let i = 0; i < this._listModel.n_items; i++) {
+		for (let i = 0; i < this._listModel.get_n_items(); i++) {
 			const string = this._listModel.get_string(i);
 			if (string) strings.push(string);
 		}
@@ -279,7 +280,7 @@ class AppExclusionsGroup extends Adw.PreferencesGroup {
 	}
 
 	set exclusions(exclusions: string[]) {
-		this._listModel.splice(0, this._listModel.n_items, exclusions);
+		this._listModel.splice(0, this._listModel.get_n_items(), exclusions);
 		this.notify('exclusions');
 	}
 }

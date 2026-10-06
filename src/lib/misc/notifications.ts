@@ -16,6 +16,47 @@ import { Icon, loadIcon } from '../common/icons.js';
 import { ClipboardEntry } from '../database/database.js';
 import { normalizeIndentation, trim } from '../ui/components/label.js';
 import { commonDirectory } from '../ui/items/filesItem.js';
+import { VERSION } from './compatibility.js';
+
+interface NotificationParams {
+	source: MessageTray.Source;
+	title: string;
+	body: string;
+	gicon: Gio.Icon | St.ImageContent;
+	isTransient?: boolean;
+}
+
+// GNOME 45 and older use positional arguments for message tray sources and notifications
+function createSource(title: string, icon: Gio.Icon): MessageTray.Source {
+	if (VERSION >= 46) return new MessageTray.Source({ title, icon });
+
+	const LegacySource = MessageTray.Source as unknown as new (
+		title: string,
+		iconName: string | null,
+	) => MessageTray.Source & { getIcon(): Gio.Icon };
+	const source = new LegacySource(title, null);
+	source.getIcon = () => icon;
+	return source;
+}
+
+function createNotification(params: NotificationParams): MessageTray.Notification {
+	if (VERSION >= 46) return new MessageTray.Notification(params);
+
+	const LegacyNotification = MessageTray.Notification as unknown as new (
+		source: MessageTray.Source,
+		title: string,
+		banner: string,
+		params: { gicon: Gio.Icon | St.ImageContent },
+	) => MessageTray.Notification & { setTransient(isTransient: boolean): void };
+	const notification = new LegacyNotification(params.source, params.title, params.body, { gicon: params.gicon });
+	notification.setTransient(params.isTransient ?? false);
+	return notification;
+}
+
+function addNotification(source: MessageTray.Source, notification: MessageTray.Notification) {
+	if (VERSION >= 46) source.addNotification(notification);
+	else (source as unknown as { showNotification(n: MessageTray.Notification): void }).showNotification(notification);
+}
 
 @registerClass()
 export class NotificationManager extends GObject.Object {
@@ -28,10 +69,7 @@ export class NotificationManager extends GObject.Object {
 	private get source() {
 		if (this._source) return this._source;
 
-		this._source = new MessageTray.Source({
-			title: this.ext.metadata.name,
-			icon: loadIcon(this.ext, Icon.Clipboard),
-		});
+		this._source = createSource(this.ext.metadata.name, loadIcon(this.ext, Icon.Clipboard));
 
 		this._source.connect('destroy', () => (this._source = null));
 		Main.messageTray.add(this._source);
@@ -40,7 +78,7 @@ export class NotificationManager extends GObject.Object {
 
 	public warning(title: string, body: string, ...actions: [label: string, callback: () => void][]) {
 		const source = this.source;
-		const notification = new MessageTray.Notification({
+		const notification = createNotification({
 			source,
 			title,
 			body,
@@ -51,31 +89,48 @@ export class NotificationManager extends GObject.Object {
 			notification.addAction(label, callback);
 		}
 
-		source.addNotification(notification);
+		addNotification(source, notification);
 	}
 
 	public textNotification(text: string) {
 		if (!this.ext.settings.get_boolean('send-notification')) return;
 
 		const source = this.source;
-		const notification = new MessageTray.Notification({
+		const notification = createNotification({
 			source,
 			title: _('Copied Text'),
 			body: text,
 			gicon: loadIcon(this.ext, Icon.Text),
 			isTransient: true,
 		});
-		source.addNotification(notification);
+		addNotification(source, notification);
 	}
 
 	private createImageContent(pixbuf: GdkPixbuf.Pixbuf): St.ImageContent {
-		const context = global.stage.context.get_backend().get_cogl_context();
 		const pixels = pixbuf.get_pixels();
 		const content = new St.ImageContent({
 			preferred_width: pixbuf.width,
 			preferred_height: pixbuf.height,
 		});
-		content.set_bytes(context, pixels, Cogl.PixelFormat.RGBA_8888, pixbuf.width, pixbuf.height, pixbuf.rowstride);
+
+		// The cogl context argument was added in GNOME 47
+		const stage = global.stage as typeof global.stage & { context?: typeof global.stage.context };
+		if (stage.context) {
+			const context = stage.context.get_backend().get_cogl_context();
+			content.set_bytes(
+				context,
+				pixels,
+				Cogl.PixelFormat.RGBA_8888,
+				pixbuf.width,
+				pixbuf.height,
+				pixbuf.rowstride,
+			);
+		} else {
+			const legacy = content as unknown as {
+				set_bytes(data: Uint8Array, format: Cogl.PixelFormat, w: number, h: number, stride: number): boolean;
+			};
+			legacy.set_bytes(pixels, Cogl.PixelFormat.RGBA_8888, pixbuf.width, pixbuf.height, pixbuf.rowstride);
+		}
 		return content;
 	}
 
@@ -93,14 +148,14 @@ export class NotificationManager extends GObject.Object {
 		}
 
 		const source = this.source;
-		const notification = new MessageTray.Notification({
+		const notification = createNotification({
 			source,
 			title: _('Copied Image'),
 			body: _('Size: %d×%d px').format(width, height),
 			gicon,
 			isTransient: true,
 		});
-		source.addNotification(notification);
+		addNotification(source, notification);
 	}
 
 	public notification(entry: ClipboardEntry) {
@@ -159,7 +214,7 @@ export class NotificationManager extends GObject.Object {
 		}
 
 		const source = this.source;
-		const notification = new MessageTray.Notification({ source, title, body, gicon, isTransient: true });
-		source.addNotification(notification);
+		const notification = createNotification({ source, title, body, gicon, isTransient: true });
+		addNotification(source, notification);
 	}
 }

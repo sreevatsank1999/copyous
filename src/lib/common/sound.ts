@@ -51,7 +51,9 @@ export class SoundManager {
 
 		// Locate gnome sounds
 		for (const dir of GLib.get_system_data_dirs()) {
-			const gnomeSounds = Gio.File.new_build_filenamev([dir, 'sounds', 'gnome', 'default', 'alerts']);
+			const gnomeSounds = Gio.File.new_for_path(
+				GLib.build_filenamev([dir, 'sounds', 'gnome', 'default', 'alerts']),
+			);
 			if (gnomeSounds.query_exists(null)) {
 				for (const sound of [Sound.Click, Sound.Hum, Sound.String, Sound.Swing]) {
 					const file = gnomeSounds.get_child(`${sound}.ogg`);

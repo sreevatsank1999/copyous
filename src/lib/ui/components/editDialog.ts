@@ -16,6 +16,7 @@ import { ItemType } from '../../common/constants.js';
 import { registerClass } from '../../common/gjs.js';
 import { Icon, loadIcon } from '../../common/icons.js';
 import { ClipboardEntry, CodeMetadata, Language } from '../../database/database.js';
+import { getEvent, setScrollViewChild } from '../../misc/compatibility.js';
 
 /** Entry with proper height for multiline text and event forwarding */
 @registerClass()
@@ -28,19 +29,21 @@ export class Entry extends St.Entry {
 		return this.clutter_text.get_preferred_height(for_width);
 	}
 
-	override vfunc_button_press_event(event: Clutter.Event): boolean {
+	override vfunc_button_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		if (event.get_button() === Clutter.BUTTON_PRIMARY && !this.clutter_text.has_key_focus()) {
 			this.clutter_text.grab_key_focus();
 		}
 
-		return this.clutter_text.vfunc_button_press_event(event);
+		return this.clutter_text.vfunc_button_press_event(vfuncEvent);
 	}
 
-	override vfunc_button_release_event(event: Clutter.Event): boolean {
-		return this.clutter_text.vfunc_button_release_event(event);
+	override vfunc_button_release_event(vfuncEvent: Clutter.Event): boolean {
+		return this.clutter_text.vfunc_button_release_event(vfuncEvent);
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const key = event.get_key_symbol();
 		if (event.has_control_modifier()) {
 			if (key === Clutter.KEY_Home) {
@@ -61,18 +64,21 @@ export class Entry extends St.Entry {
 			}
 		}
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 
-	override vfunc_motion_event(event: Clutter.Event): boolean {
+	override vfunc_motion_event(vfuncEvent: Clutter.Event): boolean {
 		this.updateHover();
-		return this.clutter_text.vfunc_motion_event(event);
+		return this.clutter_text.vfunc_motion_event(vfuncEvent);
 	}
 
 	private updateHover() {
 		this.sync_hover();
 		if (this.hover) {
-			global.display.set_cursor(Meta.Cursor.TEXT);
+			// Meta.Cursor.TEXT is called IBEAM in GNOME 42
+			global.display.set_cursor(
+				'TEXT' in Meta.Cursor ? Meta.Cursor.TEXT : (Meta.Cursor as unknown as { IBEAM: Meta.Cursor }).IBEAM,
+			);
 		} else {
 			global.display.set_cursor(Meta.Cursor.DEFAULT);
 		}
@@ -106,7 +112,7 @@ export class MultilineEntry extends St.Entry {
 			x_expand: true,
 			y_expand: true,
 		});
-		scrollView.child = box;
+		setScrollViewChild(scrollView, box);
 
 		box.add_child(text);
 
@@ -144,12 +150,15 @@ export class ScrollablePopupMenuSection extends PopupMenu.PopupMenuSection {
 	constructor() {
 		super();
 
-		// @ts-expect-error actor cannot be reassigned
-		this.actor = new St.ScrollView({
+		const scrollView = new St.ScrollView({
 			style_class: 'scrollable-popup-menu-section',
-			child: this.box,
 			overlay_scrollbars: true,
+			hscrollbar_policy: St.PolicyType.NEVER, // Default since GNOME 46
 		});
+		setScrollViewChild(scrollView, this.box);
+
+		// @ts-expect-error actor cannot be reassigned
+		this.actor = scrollView;
 	}
 }
 

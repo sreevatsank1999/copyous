@@ -2,6 +2,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { HLJSApi } from 'highlight.js';
 import type { LanguageFn } from 'highlight.js';
@@ -21,7 +22,12 @@ import { ClipboardIndicator } from './lib/ui/indicator.js';
 
 export default class CopyousExtension extends Extension {
 	public settings!: Gio.Settings;
-	public logger!: { log(...a: unknown[]): void; info(...a: unknown[]): void; warn(...a: unknown[]): void; error(...a: unknown[]): void };
+	public logger!: {
+		log(...a: unknown[]): void;
+		info(...a: unknown[]): void;
+		warn(...a: unknown[]): void;
+		error(...a: unknown[]): void;
+	};
 
 	public hljs: HLJSApi | null | undefined;
 	private hljsMonitor: Gio.FileMonitor | undefined;
@@ -54,7 +60,13 @@ export default class CopyousExtension extends Extension {
 		const error = this.logger.error.bind(this.logger);
 
 		// Highlight.js
-		this.initHljs().catch(error);
+		// Wait until the shell has started: GJS 1.72 (GNOME 42) runs the main loop while a dynamic import started
+		// during startup is pending, which runs the shell's startup callbacks before mutter has finished starting
+		if (Main.layoutManager._startingUp) {
+			Main.layoutManager.connectObject('startup-complete', () => this.initHljs().catch(error), this);
+		} else {
+			this.initHljs().catch(error);
+		}
 
 		// Theme
 		this.themeManager = new ThemeManager(this);
@@ -148,6 +160,9 @@ export default class CopyousExtension extends Extension {
 
 		const hljsPath = getHljsPath(this);
 		try {
+			// GNOME Shell 42 logs failed imports as errors, so only import highlight.js once it has been downloaded
+			if (!hljsPath.query_exists(null)) throw new Error('highlight.js has not been downloaded');
+
 			const hljs = (await import(hljsPath.get_uri())) as { default: HLJSApi };
 			this.hljs = hljs.default;
 
@@ -263,6 +278,7 @@ export default class CopyousExtension extends Extension {
 		this.indicator = undefined;
 
 		// Highlight.js
+		Main.layoutManager.disconnectObject(this);
 		this.hljs = undefined;
 		this.hljsMonitor?.cancel();
 		this.hljsMonitor = undefined;

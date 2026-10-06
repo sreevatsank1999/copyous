@@ -20,6 +20,7 @@ import { ClipboardHistory, ItemType } from '../common/constants.js';
 import { registerClass } from '../common/gjs.js';
 import { Icon, loadIcon } from '../common/icons.js';
 import { ClipboardEntry } from '../database/database.js';
+import { getEvent } from '../misc/compatibility.js';
 
 @registerClass({
 	Signals: {
@@ -116,7 +117,11 @@ export class ClipboardIndicator extends PanelMenu.Button {
 			this,
 		);
 
-		this.bind_property('incognito', this._incognitoSwitch, 'state', GObject.BindingFlags.BIDIRECTIONAL);
+		// PopupSwitchMenuItem has no state property in GNOME 44 and older, bind to its switch instead
+		const switchItem = this._incognitoSwitch as PopupMenu.PopupSwitchMenuItem & { _switch: GObject.Object };
+		const hasState = (PopupMenu.PopupSwitchMenuItem as unknown as typeof GObject.Object).find_property('state');
+		const stateObject = hasState ? switchItem : switchItem._switch;
+		this.bind_property('incognito', stateObject, 'state', GObject.BindingFlags.BIDIRECTIONAL);
 
 		this.updateSettings();
 	}
@@ -127,7 +132,7 @@ export class ClipboardIndicator extends PanelMenu.Button {
 
 	set incognito(value: boolean) {
 		if (this._incognito === value) return;
-		this._incognitoSwitch.state = value;
+		this._incognitoSwitch.setToggleState(value); // state is read-only in GNOME 44 and older
 		this._incognito = value;
 		this._icon.gicon = loadIcon(this.ext, value ? Icon.ClipboardDisabled : Icon.Clipboard);
 		this.ext.settings.set_boolean('incognito', value);
@@ -224,7 +229,8 @@ export class ClipboardIndicator extends PanelMenu.Button {
 		dialog.open();
 	}
 
-	override vfunc_button_press_event(event: Clutter.Event): boolean {
+	override vfunc_button_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		if (event.get_button() === Clutter.BUTTON_PRIMARY) {
 			this.emit('open-dialog');
 			return Clutter.EVENT_STOP;
@@ -238,7 +244,8 @@ export class ClipboardIndicator extends PanelMenu.Button {
 		return Clutter.EVENT_PROPAGATE;
 	}
 
-	override vfunc_touch_event(event: Clutter.Event): boolean {
+	override vfunc_touch_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		if (event.type() === Clutter.EventType.TOUCH_BEGIN) {
 			this.emit('open-dialog');
 			return Clutter.EVENT_STOP;

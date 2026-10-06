@@ -12,6 +12,7 @@ import { registerClass } from '../../common/gjs.js';
 import { globToRegex } from '../../common/glob.js';
 import { Icon } from '../../common/icons.js';
 import { ClipboardEntry } from '../../database/database.js';
+import { setExpand } from '../../misc/compatibility.js';
 import { ContentInfo, createFileInfo } from '../components/contentInfo.js';
 import {
 	BackgroundSize,
@@ -189,7 +190,7 @@ export class FileItem extends ClipboardItem {
 		// File preview
 		const showFilePreview = this.showFilePreview();
 		if (this._filePreview && showFilePreview) {
-			this._file.y_expand = false;
+			setExpand(this._file, 'y', false);
 			this._file.clutter_text.line_wrap = false;
 			this._file.clutter_text.ellipsize = Pango.EllipsizeMode.START;
 			this._filePreview.visible = true;

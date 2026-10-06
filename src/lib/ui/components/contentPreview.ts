@@ -220,7 +220,7 @@ async function tryGetThumbnail(file: Gio.File): Promise<Gio.File | null> {
 	const md5 = GLib.compute_checksum_for_string(GLib.ChecksumType.MD5, uri, uri.length);
 
 	const homeDir = GLib.get_home_dir();
-	const thumbnailDir = Gio.File.new_build_filenamev([homeDir, '.cache', 'thumbnails']);
+	const thumbnailDir = Gio.File.new_for_path(GLib.build_filenamev([homeDir, '.cache', 'thumbnails']));
 
 	try {
 		const enumerator = await thumbnailDir.enumerate_children_async(

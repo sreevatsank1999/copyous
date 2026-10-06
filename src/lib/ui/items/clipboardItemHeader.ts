@@ -10,6 +10,7 @@ import { formatTimeSpan } from 'resource:///org/gnome/shell/misc/dateUtils.js';
 import { ActiveState, Tag } from '../../common/constants.js';
 import { enumParamSpec, flagsParamSpec, registerClass } from '../../common/gjs.js';
 import { Icon, loadIcon } from '../../common/icons.js';
+import { setExpand } from '../../misc/compatibility.js';
 
 // https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/js/ui/messageList.js#L277
 @registerClass()
@@ -120,6 +121,7 @@ export class ClipboardItemHeader extends St.BoxLayout {
 			x_expand: true,
 			y_expand: false,
 		});
+		setExpand(this, 'y', false);
 
 		this._defaultTitle = title;
 
@@ -236,7 +238,9 @@ export class ClipboardItemHeader extends St.BoxLayout {
 	}
 
 	set pinned(pinned) {
-		this._pinButton.checked = pinned;
+		// St.Button notifies checked even if it did not change in GNOME 42, which would make the
+		// bidirectional bindings with the pin button and the entry loop forever
+		if (this._pinButton.checked !== pinned) this._pinButton.checked = pinned;
 		this.updateHeaderControls();
 		this.notify('pinned');
 	}

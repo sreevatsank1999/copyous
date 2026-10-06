@@ -5,6 +5,7 @@ import St from 'gi://St';
 import type CopyousExtension from '../../extension.js';
 import { enumParamSpec, registerClass } from '../common/gjs.js';
 import { get_first_visible_child, get_last_visible_child } from '../misc/actor.js';
+import { getEvent, setScrollViewChild } from '../misc/compatibility.js';
 import { ClipboardScrollContainer } from './clipboardScrollContainer.js';
 import { ClipboardItem } from './items/clipboardItem.js';
 import { SearchQuery } from './searchEntry.js';
@@ -44,7 +45,7 @@ export class ClipboardScrollView extends St.ScrollView {
 		});
 
 		this._scrollContainer = new ClipboardScrollContainer(ext);
-		this.set_child(this._scrollContainer);
+		setScrollViewChild(this, this._scrollContainer);
 
 		this.connect('notify::width', this.scrollbarWorkaround.bind(this));
 		this._scrollContainer.connect('notify::width', this.scrollbarWorkaround.bind(this));
@@ -137,7 +138,8 @@ export class ClipboardScrollView extends St.ScrollView {
 		}
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const key = event.get_key_symbol();
 
 		// Home
@@ -158,10 +160,11 @@ export class ClipboardScrollView extends St.ScrollView {
 			return Clutter.EVENT_STOP;
 		}
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 
-	override vfunc_scroll_event(event: Clutter.Event): boolean {
+	override vfunc_scroll_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		let delta = 0;
 		let animate = false;
 
@@ -184,11 +187,12 @@ export class ClipboardScrollView extends St.ScrollView {
 
 		let adjustment: St.Adjustment;
 		let step: number;
+		// St.ScrollView has no adjustment properties in GNOME 42, but shares them with its scrollable child
 		if (this._orientation === Clutter.Orientation.HORIZONTAL) {
-			adjustment = this.hadjustment;
+			adjustment = this._scrollContainer.hadjustment;
 			step = this._itemWidth + spacing;
 		} else {
-			adjustment = this.vadjustment;
+			adjustment = this._scrollContainer.vadjustment;
 			step = this._itemHeight + spacing;
 		}
 

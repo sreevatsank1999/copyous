@@ -74,13 +74,13 @@ class ActionDefault extends Adw.ComboRow {
 		for (const action of actions) {
 			if (instanceofAction(action)) {
 				if (validType(this.type, action.types)) {
-					if (action.id === id) selected = list.n_items;
+					if (action.id === id) selected = list.get_n_items();
 					list.append(new ActionListItem(action.id, action.name));
 				}
 			} else if (instanceofActionSubmenu(action)) {
 				for (const subAction of action.actions) {
 					if (validType(this.type, subAction.types)) {
-						if (subAction.id === id) selected = list.n_items;
+						if (subAction.id === id) selected = list.get_n_items();
 						list.append(new ActionListItem(subAction.id, subAction.name, action.name));
 					}
 				}

@@ -27,6 +27,25 @@ export const ColorScheme = {
 
 export type ColorScheme = (typeof ColorScheme)[keyof typeof ColorScheme];
 
+/**
+ * Ubuntu's GNOME 42 settings for the shell color scheme
+ */
+function getUbuntuSettings(): Gio.Settings | undefined {
+	return (St.Settings.get() as St.Settings & { _ubuntuSettings?: Gio.Settings })._ubuntuSettings;
+}
+
+/**
+ * Main.getStyleVariant() was added in GNOME 47. Before that the default shell theme is dark,
+ * except for the light variants of Ubuntu's Yaru theme (Yaru, Yaru-blue, ...).
+ */
+function getStyleVariant(): string {
+	if ('getStyleVariant' in Main) return Main.getStyleVariant();
+
+	const shell = Main as unknown as { _getDefaultStylesheet?: () => Gio.File | null };
+	const theme = shell._getDefaultStylesheet?.()?.get_parent()?.get_basename() ?? '';
+	return theme.startsWith('Yaru') && !theme.endsWith('-dark') ? 'light' : 'dark';
+}
+
 @registerClass({
 	Properties: {
 		'color-scheme': enumParamSpec('color-scheme', GObject.ParamFlags.READABLE, ColorScheme, ColorScheme.Dark),
@@ -36,8 +55,6 @@ export class ThemeManager extends GObject.Object {
 	private readonly _resource: Gio.Resource;
 	private readonly _themeSettings: Gio.Settings;
 	private readonly _settings: St.Settings;
-	private readonly _contrastChangedId: number;
-	private readonly _colorSchemeChangedId: number;
 
 	private _stylesheet: Gio.File | null = null;
 	private _colorScheme: ColorScheme = ColorScheme.Dark;
@@ -52,9 +69,19 @@ export class ThemeManager extends GObject.Object {
 		this._themeSettings.connectObject('changed', this.updateTheme.bind(this), this);
 
 		this._settings = St.Settings.get();
-
-		this._contrastChangedId = this._settings.connect('notify::high-contrast', this.updateTheme.bind(this));
-		this._colorSchemeChangedId = this._settings.connect('notify::color-scheme', this.updateTheme.bind(this));
+		this._settings.connectObject(
+			'notify::high-contrast',
+			this.updateTheme.bind(this),
+			'notify::color-scheme',
+			this.updateTheme.bind(this),
+			// GNOME 42: the shell theme variant follows the GTK theme and the Ubuntu color scheme
+			'notify::gtk-theme',
+			this.updateTheme.bind(this),
+			'notify::gtk-theme-variant',
+			this.updateTheme.bind(this),
+			this,
+		);
+		getUbuntuSettings()?.connectObject('changed::color-scheme', this.updateTheme.bind(this), this);
 
 		this.updateTheme().catch(() => {});
 	}
@@ -79,8 +106,8 @@ export class ThemeManager extends GObject.Object {
 		this._stylesheet = null;
 		Gio.resources_unregister(this._resource);
 		this._themeSettings.disconnectObject(this);
-		this._settings.disconnect(this._contrastChangedId);
-		this._settings.disconnect(this._colorSchemeChangedId);
+		this._settings.disconnectObject(this);
+		getUbuntuSettings()?.disconnectObject(this);
 	}
 
 	private async updateTheme() {
@@ -96,7 +123,7 @@ export class ThemeManager extends GObject.Object {
 				// system
 				return this._settings.high_contrast
 					? ColorScheme.HighContrast
-					: Main.getStyleVariant() === 'light'
+					: getStyleVariant() === 'light'
 						? ColorScheme.Light
 						: ColorScheme.Dark;
 			} else {

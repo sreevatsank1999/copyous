@@ -297,7 +297,7 @@ export class ExclusionsGroup extends Adw.PreferencesGroup {
 
 	get exclusionPatterns(): string[] {
 		const strings: string[] = [];
-		for (let i = 0; i < this._listModel.n_items; i++) {
+		for (let i = 0; i < this._listModel.get_n_items(); i++) {
 			const string = this._listModel.get_string(i);
 			if (string) strings.push(string);
 		}
@@ -305,7 +305,7 @@ export class ExclusionsGroup extends Adw.PreferencesGroup {
 	}
 
 	set exclusionPatterns(patterns: string[]) {
-		this._listModel.splice(0, this._listModel.n_items, patterns);
+		this._listModel.splice(0, this._listModel.get_n_items(), patterns);
 		this.notify('exclusion-patterns');
 	}
 }

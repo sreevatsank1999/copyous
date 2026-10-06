@@ -63,7 +63,10 @@ export class TypesBox extends Gtk.Box {
 
 		this._all.visible = false;
 		this._typesBox.visible = true;
-		this._typesBox.remove_all();
+		// Gtk.FlowBox.remove_all() was added in GTK 4.12
+		for (let child = this._typesBox.get_first_child(); child; child = this._typesBox.get_first_child()) {
+			this._typesBox.remove(child);
+		}
 		if (types.includes(ItemType.Text))
 			this._typesBox.append(new Gtk.Image({ icon_name: Icon.Text, css_classes: ['dim-label'] }));
 		if (types.includes(ItemType.Code))

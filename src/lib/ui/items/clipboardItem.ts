@@ -1,7 +1,6 @@
 import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
-import Graphene from 'gi://Graphene';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
@@ -10,6 +9,7 @@ import { ActiveState } from '../../common/constants.js';
 import { flagsParamSpec, registerClass } from '../../common/gjs.js';
 import { Icon } from '../../common/icons.js';
 import { ClipboardEntry } from '../../database/database.js';
+import { getEvent, setExpand } from '../../misc/compatibility.js';
 import { Shortcut } from '../../misc/shortcuts.js';
 import { SearchQuery } from '../searchEntry.js';
 import { ClipboardItemHeader, HeaderControlsVisibility } from './clipboardItemHeader.js';
@@ -61,6 +61,8 @@ export class ClipboardItem extends St.Button {
 			width: 300,
 			height: 200,
 		});
+		setExpand(this, 'x', false);
+		setExpand(this, 'y', false);
 
 		this._box = new St.Widget({
 			style_class: 'clipboard-item-box',
@@ -247,7 +249,8 @@ export class ClipboardItem extends St.Button {
 		this.notify('active');
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const key = event.get_key_symbol();
 		const action = this.ext.shortcutsManager?.getShortcutForKeyBinding(key, event.get_state());
 
@@ -295,7 +298,7 @@ export class ClipboardItem extends St.Button {
 		const actionId = this.ext.shortcutsManager?.getActionForKeyBinding(key, event.get_state());
 		if (actionId) this.emit('activate-action', actionId);
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 
 	override vfunc_get_preferred_height(for_width: number): [number, number] {
@@ -334,9 +337,17 @@ class HoleEffect extends Shell.GLSLEffect {
 		const size = this.actor.get_transformed_size();
 		this.set_uniform_float(this._sizeLocation, 2, size);
 
-		const position = this.target.apply_relative_transform_to_point(this.actor, new Graphene.Point3D());
+		// The target is not a descendant of the actor, so apply_relative_transform_to_point() is undefined
+		// (GNOME 42 returns stage coordinates); use the offset between their transformed positions instead
+		const [actorX, actorY] = this.actor.get_transformed_position();
+		const [targetX, targetY] = this.target.get_transformed_position();
 		const [width, height] = this.target.get_transformed_size();
-		this.set_uniform_float(this._holeBoxLocation, 4, [position.x - 1.5, position.y + 1, width + 2, height + 1]);
+		this.set_uniform_float(this._holeBoxLocation, 4, [
+			targetX - actorX - 1.5,
+			targetY - actorY + 1,
+			width + 2,
+			height + 1,
+		]);
 
 		super.vfunc_paint_target(node, paintContext);
 	}
@@ -399,6 +410,10 @@ class HoleEffect extends Shell.GLSLEffect {
 			float alpha = rounded_rect_coverage(p, bounds, radius);
 			cogl_color_out = vec4(c.rgb * alpha, min(alpha, c.a));`;
 
-		this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, dec, src, true);
+		// GNOME 43 and older use Shell.SnippetHook
+		const SnippetHook =
+			(Cogl as { SnippetHook?: typeof Cogl.SnippetHook }).SnippetHook ??
+			(Shell as unknown as { SnippetHook: typeof Cogl.SnippetHook }).SnippetHook;
+		this.add_glsl_snippet(SnippetHook.FRAGMENT, dec, src, true);
 	}
 }

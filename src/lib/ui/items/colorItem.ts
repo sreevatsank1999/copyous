@@ -43,7 +43,7 @@ export class ColorPreview extends ContentPreview {
 		});
 		colorLabel.clutter_text.line_wrap = true;
 		colorLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-		colorBox.add_child(colorLabel);
+		colorBox.child = colorLabel; // GNOME 42's St.Bin only allocates its child property
 
 		this._effect = new Clutter.BrightnessContrastEffect({ enabled: false });
 		colorBox.add_effect(this._effect);

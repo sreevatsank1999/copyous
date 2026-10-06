@@ -278,7 +278,7 @@ export function loadConfig(ext: Extension | ExtensionPreferences, save: boolean 
 			return config;
 		}
 	} catch (err) {
-		const logger = 'logger' in ext ? (ext as any).logger : (ext.getLogger?.() ?? console);
+		const logger = 'logger' in ext ? (ext as { logger: typeof console }).logger : (ext.getLogger?.() ?? console);
 		logger.error('Failed to load actions config', err);
 	}
 

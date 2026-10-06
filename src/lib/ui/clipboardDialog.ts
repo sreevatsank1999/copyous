@@ -19,7 +19,7 @@ import { ItemType } from '../common/constants.js';
 import { registerClass } from '../common/gjs.js';
 import { Icon, loadIcon } from '../common/icons.js';
 import { ClipboardEntry } from '../database/database.js';
-import { VERSION } from '../misc/compatibility.js';
+import { VERSION, getEvent } from '../misc/compatibility.js';
 import { ClipboardScrollView } from './clipboardScrollView.js';
 import { ClipboardItemMenu } from './components/clipboardItemMenu.js';
 import { ConfirmClearHistoryDialog } from './indicator.js';
@@ -33,6 +33,12 @@ import { LinkItem } from './items/linkItem.js';
 import { TextItem } from './items/textItem.js';
 import { CenterBox, CollapsibleHeaderLayout, FitConstraint } from './layout.js';
 import { SearchEntry, SearchQuery } from './searchEntry.js';
+
+// Unredirect API before global.compositor (GNOME 48)
+interface LegacyUnredirect {
+	disable_unredirect_for_display(display: Meta.Display): void;
+	enable_unredirect_for_display(display: Meta.Display): void;
+}
 
 const ANIMATION_TIME = 150;
 
@@ -77,7 +83,8 @@ class IncognitoButton extends St.Button {
 
 	private update() {
 		const incognito = this.ext.settings.get_boolean('incognito');
-		this.checked = incognito;
+		// St.Button notifies checked even if it did not change in GNOME 42
+		if (this.checked !== incognito) this.checked = incognito;
 		this._icon.gicon = incognito ? this._incognitoIcon : this._incognitoDisabledIcon;
 	}
 }
@@ -480,7 +487,7 @@ export class ClipboardDialog extends St.Widget {
 		if (global.compositor?.disable_unredirect) {
 			global.compositor.disable_unredirect();
 		} else {
-			(Meta as any).disable_unredirect_for_display(global.display);
+			(Meta as unknown as LegacyUnredirect).disable_unredirect_for_display(global.display);
 		}
 
 		this._dialog.ease({
@@ -542,7 +549,7 @@ export class ClipboardDialog extends St.Widget {
 				if (global.compositor?.enable_unredirect) {
 					global.compositor.enable_unredirect();
 				} else {
-					(Meta as any).enable_unredirect_for_display(global.display);
+					(Meta as unknown as LegacyUnredirect).enable_unredirect_for_display(global.display);
 				}
 			},
 		});
@@ -736,7 +743,8 @@ export class ClipboardDialog extends St.Widget {
 		return String.fromCharCode(unicode).trim().length > 0;
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const key = event.get_key_symbol();
 
 		// Close on escape
@@ -808,10 +816,11 @@ export class ClipboardDialog extends St.Widget {
 		// Navigate
 		if (global.focus_manager.navigate_from_event(event)) return Clutter.EVENT_STOP;
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 
-	override vfunc_button_press_event(event: Clutter.Event): boolean {
+	override vfunc_button_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const [x, y] = event.get_coords();
 		if (this._dialog.get_transformed_extents().contains_point(new Graphene.Point({ x, y }))) {
 			return Clutter.EVENT_PROPAGATE;
@@ -821,7 +830,8 @@ export class ClipboardDialog extends St.Widget {
 		return Clutter.EVENT_STOP;
 	}
 
-	override vfunc_touch_event(event: Clutter.Event): boolean {
+	override vfunc_touch_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		if (event.type() !== Clutter.EventType.TOUCH_BEGIN) return Clutter.EVENT_PROPAGATE;
 
 		const [x, y] = event.get_coords();

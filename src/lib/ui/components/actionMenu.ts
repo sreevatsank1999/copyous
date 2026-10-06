@@ -48,6 +48,7 @@ class ActionSubmenuMenuItem extends PopupMenu.PopupSubMenuMenuItem {
 
 	constructor(action: ActionSubmenu) {
 		super(action.name);
+		this.setOrnament(PopupMenu.Ornament.HIDDEN); // Default since GNOME 45
 		this.menu.actor.add_style_class_name('clipboard-action-submenu');
 		this.menu.box.add_style_class_name('popup-sub-menu'); // Workaround for bad animation
 
@@ -73,14 +74,17 @@ class ActionSubmenuMenuItem extends PopupMenu.PopupSubMenuMenuItem {
 })
 class ActionMenuItem extends PopupMenu.PopupMenuItem {
 	declare _ornamentIcon: St.Icon;
+	declare _ornamentLabel: St.Label | undefined; // GNOME 44 and older
 	private readonly _shortcutLabel: ShortcutLabel;
 
 	constructor(private action: Action) {
 		super(action.name);
 
-		this.set_child_above_sibling(this._ornamentIcon, this.label);
-		this._ornamentIcon.x_align = Clutter.ActorAlign.END;
-		this._ornamentIcon.x_expand = true;
+		// The ornament is a St.Label in GNOME 44 and older
+		const ornament: St.Widget = this._ornamentIcon ?? this._ornamentLabel;
+		this.set_child_above_sibling(ornament, this.label);
+		ornament.x_align = Clutter.ActorAlign.END;
+		ornament.x_expand = true;
 
 		this._shortcutLabel = new ShortcutLabel(action.shortcut?.[0] ?? '', {
 			x_expand: true,

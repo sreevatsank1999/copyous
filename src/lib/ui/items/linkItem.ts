@@ -11,6 +11,7 @@ import { ActiveState } from '../../common/constants.js';
 import { enumParamSpec, flagsParamSpec, registerClass } from '../../common/gjs.js';
 import { Icon } from '../../common/icons.js';
 import { ClipboardEntry, LinkMetadata } from '../../database/database.js';
+import { getLabelPreferredHeight } from '../../misc/compatibility.js';
 import { tryGetLinkImage, tryGetMetadata } from '../../misc/link.js';
 import { BackgroundSize, ImagePreview } from '../components/contentPreview.js';
 import { SearchQuery } from '../searchEntry.js';
@@ -171,9 +172,9 @@ export class LinkPreview extends St.Widget {
 	override vfunc_get_preferred_height(for_width: number): [number, number] {
 		const [, nat0] = this._image?.visible ? this._image.get_preferred_height(for_width) : [0, 0];
 		const [, nat1] = this._title.visible ? this._title.get_preferred_height(for_width) : [0, 0];
-		const [min2, nat2] = this._description.visible ? this._description.get_preferred_height(for_width) : [0, 0];
-		const [min3, nat3] = this._url.get_preferred_height(for_width);
-		const [min4, nat4] = this._singleUrl.get_preferred_height(for_width);
+		const [min2, nat2] = this._description.visible ? getLabelPreferredHeight(this._description, for_width) : [0, 0];
+		const [min3, nat3] = getLabelPreferredHeight(this._url, for_width);
+		const [min4, nat4] = getLabelPreferredHeight(this._singleUrl, for_width);
 		const vertical = this.orientation === Clutter.Orientation.VERTICAL;
 
 		if (vertical && nat0 > 0) {
@@ -203,8 +204,8 @@ export class LinkPreview extends St.Widget {
 		}
 
 		const [min1, nat1] = this._title.get_preferred_height(width - x);
-		const [min2, nat2] = this._description.get_preferred_height(width - x);
-		const [min3, nat3] = this._url.get_preferred_height(width - x);
+		const [min2, nat2] = getLabelPreferredHeight(this._description, width - x);
+		const [min3, nat3] = getLabelPreferredHeight(this._url, width - x);
 
 		// Add top padding for when the header is hidden
 		let spacing = this._topPadding ? SPACING : 0;

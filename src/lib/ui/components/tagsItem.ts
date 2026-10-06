@@ -7,6 +7,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { Tag, Tags } from '../../common/constants.js';
 import { registerClass } from '../../common/gjs.js';
 import { Icon } from '../../common/icons.js';
+import { getEvent, setScrollViewChild } from '../../misc/compatibility.js';
 
 @registerClass()
 class TagButton extends St.Button {
@@ -26,7 +27,8 @@ class TagButton extends St.Button {
 		});
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		const key = event.get_key_symbol();
 		if (key === Clutter.KEY_Left || key === Clutter.KEY_Right) {
 			const direction = key === Clutter.KEY_Left ? St.DirectionType.LEFT : St.DirectionType.RIGHT;
@@ -34,7 +36,7 @@ class TagButton extends St.Button {
 			return Clutter.EVENT_STOP;
 		}
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 }
 
@@ -117,10 +119,11 @@ export class TagsItem extends PopupMenu.PopupBaseMenuItem {
 			activate: false,
 		});
 		this.track_hover = false;
+		this.setOrnament(PopupMenu.Ornament.HIDDEN); // Default since GNOME 45
 
 		// Left arrow
 		this._leftArrow = new St.Button({
-			icon_name: Icon.Left,
+			child: new St.Icon({ icon_name: Icon.Left }), // St.Button has no icon-name in GNOME 42
 			style_class: 'popup-menu-item arrow-button',
 			reactive: false,
 		});
@@ -130,19 +133,22 @@ export class TagsItem extends PopupMenu.PopupBaseMenuItem {
 		const scrollView = new St.ScrollView({
 			style_class: 'tags-scrollview',
 			x_expand: true,
+			// Scrolled with the arrow buttons; GNOME 42 shows scrollbars by default
+			hscrollbar_policy: St.PolicyType.EXTERNAL,
+			vscrollbar_policy: St.PolicyType.NEVER,
 		});
 		this.actor.add_child(scrollView);
 
 		this._tagsBox = new TagsBox({ x_expand: true });
 		Tags.forEach((tag) => this.addTag(tag));
-		scrollView.child = this._tagsBox;
+		setScrollViewChild(scrollView, this._tagsBox);
 
 		this._tagsBox.hadjustment.connect('notify::value', this.updateButtons.bind(this));
 		this._tagsBox.hadjustment.connect('changed', this.updateButtons.bind(this));
 
 		// Right arrow
 		this._rightArrow = new St.Button({
-			icon_name: Icon.Right,
+			child: new St.Icon({ icon_name: Icon.Right }), // St.Button has no icon-name in GNOME 42
 			style_class: 'popup-menu-item arrow-button',
 		});
 		this.actor.add_child(this._rightArrow);
@@ -223,7 +229,8 @@ export class TagsItem extends PopupMenu.PopupBaseMenuItem {
 		this._tagsBox.scrollToChild(button);
 	}
 
-	override vfunc_key_press_event(event: Clutter.Event): boolean {
+	override vfunc_key_press_event(vfuncEvent: Clutter.Event): boolean {
+		const event = getEvent(vfuncEvent);
 		// Workaround for activate: false disabling wrap navigation
 		let state = event.get_state();
 		state &= ~Clutter.ModifierType.LOCK_MASK;
@@ -237,7 +244,7 @@ export class TagsItem extends PopupMenu.PopupBaseMenuItem {
 			if (group?.navigate_focus(this, St.DirectionType.UP, true)) return Clutter.EVENT_STOP;
 		}
 
-		return super.vfunc_key_press_event(event);
+		return super.vfunc_key_press_event(vfuncEvent);
 	}
 
 	override vfunc_map(): void {

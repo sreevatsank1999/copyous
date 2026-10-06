@@ -12,6 +12,31 @@ import { instanceofAction, instanceofActionSubmenu, loadConfig } from '../common
 import { getActionsConfigPath } from '../common/constants.js';
 import { registerClass } from '../common/gjs.js';
 
+/**
+ * Meta.accelerator_name() was added in GNOME 46, this mirrors its implementation using GDK 3,
+ * which GNOME 42 loads in the shell process.
+ */
+function acceleratorName(mask: Clutter.ModifierType, keyval: number): string {
+	if ('accelerator_name' in Meta) return Meta.accelerator_name(mask, keyval);
+
+	const Gdk = (
+		imports.gi as unknown as { Gdk: { keyval_name(k: number): string | null; keyval_to_lower(k: number): number } }
+	).Gdk;
+	const modifiers: [Clutter.ModifierType, string][] = [
+		[Clutter.ModifierType.SHIFT_MASK, '<Shift>'],
+		[Clutter.ModifierType.CONTROL_MASK, '<Control>'],
+		[Clutter.ModifierType.MOD1_MASK, '<Alt>'],
+		[Clutter.ModifierType.META_MASK, '<Meta>'],
+		[Clutter.ModifierType.SUPER_MASK, '<Super>'],
+		[Clutter.ModifierType.HYPER_MASK, '<Hyper>'],
+	];
+	const prefix = modifiers
+		.filter(([modifier]) => mask & modifier)
+		.map(([, text]) => text)
+		.join('');
+	return prefix + (Gdk.keyval_name(Gdk.keyval_to_lower(keyval)) ?? '');
+}
+
 export const Shortcut = {
 	Open: 'open-clipboard-dialog-shortcut',
 	Incognito: 'toggle-incognito-mode-shortcut',
@@ -171,7 +196,7 @@ export class ShortcutManager extends GObject.Object {
 	}
 
 	public getShortcutForKeyBinding(keyval: number, mask: Clutter.ModifierType): Shortcut | null {
-		const accelerator = Meta.accelerator_name(mask, keyval);
+		const accelerator = acceleratorName(mask, keyval);
 		for (const [key, binding] of Object.entries(this._shortcuts)) {
 			if (binding.shortcuts.includes(accelerator)) return key as Shortcut;
 		}
@@ -179,7 +204,7 @@ export class ShortcutManager extends GObject.Object {
 	}
 
 	public getActionForKeyBinding(keyval: number, mask: Clutter.ModifierType): string | null {
-		const accelerator = Meta.accelerator_name(mask, keyval);
+		const accelerator = acceleratorName(mask, keyval);
 		return this._actions[accelerator] ?? null;
 	}
 
